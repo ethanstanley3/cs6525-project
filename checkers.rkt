@@ -7,11 +7,9 @@
 (define W 3)
 (define B 4)
 
-;(define max-depth 6)
-
 (struct state (board turn jumper won) #:transparent)
-(struct square (row col) #:transparent)
 (struct move (from to) #:transparent)
+(struct square (row col) #:transparent)
 
 (define start-board (list (list 0 w 0 w 0 w 0 w)
                           (list w 0 w 0 w 0 w 0)
@@ -22,16 +20,6 @@
                           (list 0 b 0 b 0 b 0 b)
                           (list b 0 b 0 b 0 b 0)))
 
-
-
-(define board2 (list (list 0 0 0 0 0 0 0 0)
-                     (list 0 0 0 0 0 0 0 0)
-                     (list 0 0 0 0 0 0 0 0)
-                     (list 0 0 0 0 0 0 0 0)
-                     (list 0 0 0 0 w 0 0 0)
-                     (list 0 0 0 w 0 b 0 0)
-                     (list 0 0 b 0 0 0 0 0)
-                     (list 0 0 0 0 0 0 0 0)))
 (define start-state (state start-board b #f #f))
 
 (define (piece state square)
@@ -54,7 +42,7 @@
 	  [(equal? player B) W]))
 
 (define (do-jump board move)
-  	(if (equal? (abs (- (square-row (move-from move)) (square-row (move-to move)))) 2)
+  	(if (jump? move)
 	    (update-board board
 			  (square (quotient (+ (square-row (move-from move)) (square-row (move-to move))) 2)
 				  (quotient (+ (square-col (move-from move)) (square-col (move-to move))) 2))
@@ -98,15 +86,15 @@
 	    W
 	    (if (equal? piece b)
 	        B
-		piece)))
+		    piece)))
 
 (define (same-color? piece1 piece2)
   	(equal? (promote piece1) (promote piece2)))
 
 (define (legal-moves game-state)
     (let* ([player (state-turn game-state)]
-	   [jumper (state-jumper game-state)]
-	   [board (if (equal? player b) (reverse (state-board game-state)) (state-board game-state))]
+	       [jumper (state-jumper game-state)]
+           [board (if (equal? player b) (reverse (state-board game-state)) (state-board game-state))]
            [right-jumps (for/list ([r (range 8)]
                                    #:when #t
                                    [c (range 8)]
@@ -121,45 +109,45 @@
                                               (equal? (get board (+ r 2) (- c 2)) 0)
                                               (same-color? (get board (+ r 1) (- c 1)) (opponent player))))
                                  (move (square r c) (square (+ r 2) (- c 2))))]
-
-	   [king-left-jumps (for/list ([r (range 8)]
-                                  #:when #t
-                                  [c (range 8)]
-                                  #:when (and (equal? (get board r c) (promote player)) 
-                                              (equal? (get board (- r 2) (- c 2)) 0)
-                                              (same-color? (get board (- r 1) (- c 1)) (opponent player))))
-                                 (move (square r c) (square (- r 2) (- c 2))))]
-	   [king-right-jumps (for/list ([r (range 8)]
-                                  #:when #t
-                                  [c (range 8)]
-                                  #:when (and (equal? (get board r c) (promote player)) 
-                                              (equal? (get board (- r 2) (+ c 2)) 0)
-                                              (same-color? (get board (- r 1) (+ c 1)) (opponent player))))
-                                 (move (square r c) (square (- r 2) (+ c 2))))]
-           [king-right-steps (if (equal? 0 (length (append left-jumps right-jumps king-left-jumps king-right-jumps)))
-                            (for/list ([r (range 8)]
+           [king-left-jumps (for/list ([r (range 8)]
                                        #:when #t
                                        [c (range 8)]
                                        #:when (and (equal? (get board r c) (promote player)) 
-						   (equal? (get board (- r 1) (+ c 1)) 0)))
-                                      (move (square r c) (square (- r 1) (+ c 1))))
-                            (list))]
-           [king-left-steps (if (equal? 0 (length (append left-jumps right-jumps king-left-jumps king-right-jumps)))
-                           (for/list ([r (range 8)]
-                                      #:when #t
-                                      [c (range 8)]
-                                      #:when (and (equal? (get board r c) (promote player)) 
-						  (equal? (get board (- r 1) (- c 1)) 0)))
-                                     (move (square r c) (square (- r 1) (- c 1))))
-                           (list))]
-	   [right-steps (if (equal? 0 (length (append left-jumps right-jumps king-left-jumps king-right-jumps)))
+                                              (equal? (get board (- r 2) (- c 2)) 0)
+                                              (same-color? (get board (- r 1) (- c 1)) (opponent player))))
+                                      (move (square r c) (square (- r 2) (- c 2))))]
+           [king-right-jumps (for/list ([r (range 8)]
+                                        #:when #t
+                                        [c (range 8)]
+                                        #:when (and (equal? (get board r c) (promote player)) 
+                                               (equal? (get board (- r 2) (+ c 2)) 0)
+                                               (same-color? (get board (- r 1) (+ c 1)) (opponent player))))
+                                       (move (square r c) (square (- r 2) (+ c 2))))]
+           [no-jumps-possible (equal? 0 (length (append left-jumps right-jumps king-left-jumps king-right-jumps)))]
+           [king-right-steps (if no-jumps-possible
+                                 (for/list ([r (range 8)]
+                                            #:when #t
+                                            [c (range 8)]
+                                            #:when (and (equal? (get board r c) (promote player)) 
+						                                (equal? (get board (- r 1) (+ c 1)) 0)))
+                                           (move (square r c) (square (- r 1) (+ c 1))))
+                                 (list))]
+           [king-left-steps (if no-jumps-possible
+                                (for/list ([r (range 8)]
+                                           #:when #t
+                                           [c (range 8)]
+                                           #:when (and (equal? (get board r c) (promote player)) 
+						                               (equal? (get board (- r 1) (- c 1)) 0)))
+                                          (move (square r c) (square (- r 1) (- c 1))))
+                                (list))]
+	       [right-steps (if no-jumps-possible
                             (for/list ([r (range 8)]
                                        #:when #t
                                        [c (range 8)]
                                        #:when (and (same-color? (get board r c) player) (equal? (get board (+ r 1) (+ c 1)) 0)))
                                       (move (square r c) (square (+ r 1) (+ c 1))))
                             (list))]
-           [left-steps (if (equal? 0 (length (append left-jumps right-jumps king-left-jumps king-right-jumps)))
+           [left-steps (if no-jumps-possible
                            (for/list ([r (range 8)]
                                       #:when #t
                                       [c (range 8)]
@@ -167,13 +155,15 @@
                                      (move (square r c) (square (+ r 1) (- c 1))))
                            (list))]
            [all-moves (if (equal? player b) 
-              (map reverse-move (append right-jumps left-jumps right-steps left-steps king-left-jumps king-right-jumps king-left-steps king-right-steps))
-              (append right-jumps left-jumps right-steps left-steps king-right-jumps king-left-jumps king-left-steps king-right-steps))]
-	   [jumper-moves (if jumper
-			     (filter (lambda (move) (and (jump? move) (equal? (move-from move) jumper))) all-moves)
-			     all-moves)])
-      jumper-moves))
+                          (map reverse-move (append right-jumps left-jumps right-steps left-steps king-left-jumps king-right-jumps king-left-steps king-right-steps))
+                          (append right-jumps left-jumps right-steps left-steps king-right-jumps king-left-jumps king-left-steps king-right-steps))]
+	       [jumper-moves (if jumper
+			                 (filter (lambda (move) (and (jump? move) (equal? (move-from move) jumper))) all-moves)
+			                 all-moves)])
+          jumper-moves))
 
+; value of each piece according to white player
+; used in heuristic
 (define (value-of piece)
   	(cond [(equal? piece w) 1]
 	      [(equal? piece b) -1]
@@ -181,41 +171,51 @@
 	      [(equal? piece B) -2]
 	      [else 0]))
 
+; estimate utility of board for white player
+; 0 -> tied
+; > 0 -> good for white
+; < 0 -> good for black
 (define (heuristic game-state)
-  	(apply + (map (lambda (row) (apply + row)) (map (lambda (row) (map (lambda (piece) (value-of piece)) row)) (state-board game-state)))))
+  	(apply + 
+           (map (lambda (row) (apply + row)) 
+                (map (lambda (row) (map (lambda (piece) (value-of piece)) 
+                                        row))
+                     (state-board game-state)))))
 
-;(define (heuristic game-state)
-;  	(- (apply + (map (lambda (row) (count (lambda (piece) (equal? (promote piece) W)) row)) (state-board game-state)))
-;	   (apply + (map (lambda (row) (count (lambda (piece) (equal? (promote piece) B)) row)) (state-board game-state)))))
-
-; if white's turn, return max state of all legal moves
-; if blacks turn, return min
+; if white's turn:
+;    return max utility over next possible states
+; if blacks turn:
+;    return min
 (define (state-utility-for-white game-state max-depth depth)
 	(if (equal? depth max-depth)
 	    (heuristic game-state)
 	    (let ([moves (legal-moves game-state)])
 	         (if (equal? w (state-turn game-state))
-	             (if (empty? moves) -100 (apply max (map (lambda (state) (state-utility-for-white state max-depth (+ 1 depth))) (map (lambda (move) (try-move game-state move)) moves))))
-	             (if (empty? moves) 100 (apply min (map (lambda (state) (state-utility-for-white state max-depth (+ 1 depth))) (map (lambda (move) (try-move game-state move)) moves))))))))
+	             (if (empty? moves) 
+                     -100 
+                     (apply max 
+                            (map (lambda (state) (state-utility-for-white state max-depth (+ 1 depth))) 
+                                 (map (lambda (move) (try-move game-state move)) 
+                                      moves))))
+	             (if (empty? moves) 
+                     100 
+                     (apply min 
+                            (map (lambda (state) (state-utility-for-white state max-depth (+ 1 depth))) 
+                                 (map (lambda (move) (try-move game-state move)) 
+                                      moves))))))))
 
-
-; minimax player
-; have:
-; 	legal moves : state -> list(move)
-; 	try-move : state, move -> state
+; return best move in this state
+; iterate over possible moves
+; estimate utility for white for each move using minimax
+; return argmax if white, argmin if black
 (define (best-move game-state search-depth)
   	(let* ([choices (legal-moves game-state)])
 	      (if (equal? (state-turn game-state) w)
-		  (argmax (lambda (move) (state-utility-for-white (try-move game-state move) search-depth 0)) choices)
-		  (argmin (lambda (move) (state-utility-for-white (try-move game-state move) search-depth 0)) choices))))
+		      (argmax (lambda (move) (state-utility-for-white (try-move game-state move) search-depth 0)) choices)
+		      (argmin (lambda (move) (state-utility-for-white (try-move game-state move) search-depth 0)) choices))))
 
 (define (print-board board)
     (begin (for ([row board])
                 (begin (display row)
                        (display "\n")))
            (display "\n")))
-
-(define (print-moves moves)
-    (for ([board moves])
-         (print-board board)))
-
