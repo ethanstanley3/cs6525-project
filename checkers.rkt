@@ -7,6 +7,8 @@
 (define W 3)
 (define B 4)
 
+;(define max-depth 6)
+
 (struct state (board turn jumper won) #:transparent)
 (struct square (row col) #:transparent)
 (struct move (from to) #:transparent)
@@ -171,6 +173,41 @@
 			     (filter (lambda (move) (and (jump? move) (equal? (move-from move) jumper))) all-moves)
 			     all-moves)])
       jumper-moves))
+
+(define (value-of piece)
+  	(cond [(equal? piece w) 1]
+	      [(equal? piece b) -1]
+	      [(equal? piece W) 2]
+	      [(equal? piece B) -2]
+	      [else 0]))
+
+(define (heuristic game-state)
+  	(apply + (map (lambda (row) (apply + row)) (map (lambda (row) (map (lambda (piece) (value-of piece)) row)) (state-board game-state)))))
+
+;(define (heuristic game-state)
+;  	(- (apply + (map (lambda (row) (count (lambda (piece) (equal? (promote piece) W)) row)) (state-board game-state)))
+;	   (apply + (map (lambda (row) (count (lambda (piece) (equal? (promote piece) B)) row)) (state-board game-state)))))
+
+; if white's turn, return max state of all legal moves
+; if blacks turn, return min
+(define (state-utility-for-white game-state max-depth depth)
+	(if (equal? depth max-depth)
+	    (heuristic game-state)
+	    (let ([moves (legal-moves game-state)])
+	         (if (equal? w (state-turn game-state))
+	             (if (empty? moves) -100 (apply max (map (lambda (state) (state-utility-for-white state max-depth (+ 1 depth))) (map (lambda (move) (try-move game-state move)) moves))))
+	             (if (empty? moves) 100 (apply min (map (lambda (state) (state-utility-for-white state max-depth (+ 1 depth))) (map (lambda (move) (try-move game-state move)) moves))))))))
+
+
+; minimax player
+; have:
+; 	legal moves : state -> list(move)
+; 	try-move : state, move -> state
+(define (best-move game-state search-depth)
+  	(let* ([choices (legal-moves game-state)])
+	      (if (equal? (state-turn game-state) w)
+		  (argmax (lambda (move) (state-utility-for-white (try-move game-state move) search-depth 0)) choices)
+		  (argmin (lambda (move) (state-utility-for-white (try-move game-state move) search-depth 0)) choices))))
 
 (define (print-board board)
     (begin (for ([row board])
